@@ -15,7 +15,15 @@ func lennardJonesPotential(r float64, config *PotentialFunctionConfig) float64 {
 func lennardJonesPotentialGradient(r float64, config *PotentialFunctionConfig) float64 {
 	var sigma float64 = config.sigma
 	var epsilon float64 = config.epsilon
-	return 24 * epsilon * (math.Pow(sigma, 6)/math.Pow(r, 8) - 2*math.Pow(sigma, 12)/math.Pow(r, 14))
+	return -24 * epsilon * (math.Pow(sigma, 6)/math.Pow(r, 8) - 2*math.Pow(sigma, 12)/math.Pow(r, 14))
+}
+
+func getDistance(point1 []float64, point2 []float64) float64 {
+	var distance float64 = 0
+	for i := 0; i < len(point1); i++ {
+		distance += math.Pow(point1[i]-point2[i], 2)
+	}
+	return math.Sqrt(distance)
 }
 
 func totalPotentialEnergy(inputPoints [][]float64, config *PotentialFunctionConfig) float64 {
@@ -23,11 +31,7 @@ func totalPotentialEnergy(inputPoints [][]float64, config *PotentialFunctionConf
 	var totalEnergy float64 = 0
 	for i := 0; i < numPoints; i++ {
 		for j := i + 1; j < numPoints; j++ {
-			var distance float64 = 0
-			for k := 0; k < len(inputPoints[i]); k++ {
-				distance += math.Pow(inputPoints[i][k]-inputPoints[j][k], 2)
-			}
-			distance = math.Sqrt(distance)
+			var distance float64 = getDistance(inputPoints[i], inputPoints[j])
 			totalEnergy += lennardJonesPotential(distance, config)
 		}
 	}
@@ -42,11 +46,7 @@ func getGradientwrt(index int, inputPoints [][]float64, config *PotentialFunctio
 		if i == index {
 			continue
 		}
-		var distance float64 = 0
-		for j := 0; j < numDimensions; j++ {
-			distance += math.Pow(inputPoints[i][j]-inputPoints[index][j], 2)
-		}
-		distance = math.Sqrt(distance)
+		var distance float64 = getDistance(inputPoints[index], inputPoints[i])
 
 		var lj_force float64 = lennardJonesPotentialGradient(distance, config)
 		for j := 0; j < numDimensions; j++ {
@@ -63,7 +63,7 @@ func gradientDescent(context *Context) {
 		for j := 0; j < numPoints; j++ {
 			var gradient []float64 = getGradientwrt(j, context.inputPoints, context.potentialFunctionConfig)
 			for k := 0; k < numDimensions; k++ {
-				context.inputPoints[j][k] -= context.learningRate * gradient[k]
+				context.inputPoints[j][k] += context.learningRate * gradient[k]
 			}
 		}
 		if (i+1)%50 == 0 {
@@ -77,10 +77,10 @@ func main() {
 	generator := rand.New(source)
 
 	var context *Context = setupContext(
-		5,    // 10 points
-		3,     // 3 dimensions
-		0.001, // learning rate
-		6000,    // iterations
+		4,         //  points
+		1,         //  dimensions
+		0.001,     // learning rate
+		3000,       // iterations
 		generator, // random number generator
 	)
 
