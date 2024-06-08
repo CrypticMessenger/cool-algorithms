@@ -15,6 +15,10 @@ dx/dt = 50*x*sin(y/50)
 dy/dt = 50*y*cos(x/50)
 ```
 
+
+https://github.com/CrypticMessenger/cool-algorithms/assets/75074904/e068b6bd-f41d-44c6-990d-ff98f5523770
+
+
 <video width="320" height="240" controls>
   <source src="./resources/fieldSimulation.mov" type="video/mp4">
   Your browser does not support the video tag.
