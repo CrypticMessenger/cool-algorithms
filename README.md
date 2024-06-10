@@ -10,6 +10,6 @@ This repository contains golang implementations of some cool algorithms. The pur
 - [x] Gradient Descent
 - [x] Boids
 - [x] Attractors
+- [x] Genetic Algorithm
 - [ ] page ranking algorithm
-- [ ] Genetic Algorithm
 - [ ] Wave Function Collapse
