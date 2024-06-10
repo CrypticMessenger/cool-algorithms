@@ -10,6 +10,10 @@ You can expect a trajectory i.e. Force that the thrusters need to apply to reach
 
 ### Demo
 
+
+https://github.com/CrypticMessenger/cool-algorithms/assets/75074904/b82f2570-dc70-4a17-b334-7a06f3a9678a
+
+
 ### Todo
 
 - [ ] Add obstacles and change fitness function accordingly.
