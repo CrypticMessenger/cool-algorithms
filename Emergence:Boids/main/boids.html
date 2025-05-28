@@ -1,1 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Boids with Sliders - p5.js</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.dom.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #222;
+            display: flex;
+            flex-direction: column; /* Stack canvas and controls vertically */
+            align-items: center;
+            font-family: sans-serif;
+            color: #eee;
+            padding-top: 20px; /* Add some padding at the top */
+        }
+        #controls {
+            display: flex;
+            flex-wrap: wrap; /* Allow sliders to wrap if too many */
+            justify-content: center;
+            gap: 15px; /* Spacing between slider groups */
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #333;
+            border-radius: 5px;
+        }
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 12px;
+        }
+        .slider-group label {
+            margin-bottom: 5px;
+        }
+        .slider-group span {
+            min-width: 30px; /* Ensure space for value display */
+            text-align: right;
+            margin-left: 5px;
+        }
+        .slider-container { /* To align label and value with slider */
+            display: flex;
+            align-items: center;
+        }
 
+        canvas {
+            border: 1px solid #444;
+            cursor: crosshair; /* Changed cursor for better interaction */
+        }
+    </style>
+</head>
+<body>
+    <div id="controls"></div>
+    <script>
+        let flock = [];
+        const numBoids = 100; // Initial number of boids
+
+        // --- Global Parameter Variables (will be controlled by sliders) ---
+        let ALIGN_FORCE_MULT;
+        let COHESION_FORCE_MULT;
+        let SEPARATION_FORCE_MULT;
+        let MOUSE_AVOID_FORCE_MULT;
+        let MAX_SPEED_VAL;
+        let MAX_FORCE_VAL;
+        let PERCEPTION_RADIUS_VAL;
+        let SEPARATION_RADIUS_VAL;
+        let MOUSE_AVOID_RADIUS_VAL;
+        // --------------------------
+
+        // --- Slider Objects ---
+        let sliders = {};
+        let valueDisplays = {};
+
+        let showMouseCircle = true; // Toggle for debugging mouse radius
+
+        function setup() {
+            let canvasHeight = windowHeight * 0.7; // Adjust canvas height for controls
+            let canvasWidth = windowWidth * 0.8;
+            let cnv = createCanvas(canvasWidth, canvasHeight);
+            cnv.style('display', 'block'); // Ensure canvas behaves as a block
+
+            // Initialize Boids
+            for (let i = 0; i < numBoids; i++) {
+                flock.push(new Boid());
+            }
+
+            // --- Create Sliders ---
+            const controlsDiv = select('#controls');
+
+            function createSliderWithLabel(label, minVal, maxVal, initialVal, stepVal, paramKey) {
+                let group = createDiv().addClass('slider-group').parent(controlsDiv);
+                let labelContainer = createDiv().addClass('slider-container').parent(group);
+                createSpan(label + ": ").parent(labelContainer);
+
+                sliders[paramKey] = createSlider(minVal, maxVal, initialVal, stepVal).parent(group);
+                valueDisplays[paramKey] = createSpan(initialVal.toFixed(2)).parent(labelContainer); // Display initial value
+
+                sliders[paramKey].input(() => { // Update display on slider input
+                    valueDisplays[paramKey].html(sliders[paramKey].value().toFixed(2));
+                });
+                 // Initialize global parameter
+                window[paramKey] = initialVal; // e.g., ALIGN_FORCE_MULT = initialVal
+            }
+
+            createSliderWithLabel('Align Force', 0, 5, 1.0, 0.1, 'ALIGN_FORCE_MULT');
+            createSliderWithLabel('Cohesion Force', 0, 5, 0.8, 0.1, 'COHESION_FORCE_MULT');
+            createSliderWithLabel('Separation Force', 0, 5, 1.5, 0.1, 'SEPARATION_FORCE_MULT');
+            createSliderWithLabel('Mouse Avoid Force', 0, 5, 2.5, 0.1, 'MOUSE_AVOID_FORCE_MULT');
+
+            createSliderWithLabel('Max Speed', 0.5, 10, 3, 0.1, 'MAX_SPEED_VAL');
+            createSliderWithLabel('Max Force', 0.01, 0.5, 0.1, 0.01, 'MAX_FORCE_VAL');
+
+            createSliderWithLabel('Perception Radius', 10, 200, 50, 1, 'PERCEPTION_RADIUS_VAL');
+            createSliderWithLabel('Separation Radius', 5, 100, 25, 1, 'SEPARATION_RADIUS_VAL');
+            createSliderWithLabel('Mouse Avoid Radius', 10, 200, 75, 1, 'MOUSE_AVOID_RADIUS_VAL');
+
+        }
+
+        function draw() {
+            // Update global parameters from sliders
+            ALIGN_FORCE_MULT = sliders.ALIGN_FORCE_MULT.value();
+            COHESION_FORCE_MULT = sliders.COHESION_FORCE_MULT.value();
+            SEPARATION_FORCE_MULT = sliders.SEPARATION_FORCE_MULT.value();
+            MOUSE_AVOID_FORCE_MULT = sliders.MOUSE_AVOID_FORCE_MULT.value();
+            MAX_SPEED_VAL = sliders.MAX_SPEED_VAL.value();
+            MAX_FORCE_VAL = sliders.MAX_FORCE_VAL.value();
+            PERCEPTION_RADIUS_VAL = sliders.PERCEPTION_RADIUS_VAL.value();
+            SEPARATION_RADIUS_VAL = sliders.SEPARATION_RADIUS_VAL.value();
+            MOUSE_AVOID_RADIUS_VAL = sliders.MOUSE_AVOID_RADIUS_VAL.value();
+
+            background(30, 30, 40, 50);
+
+            for (let boid of flock) {
+                boid.edges();
+                boid.flock(flock);
+                boid.update();
+                boid.display();
+            }
+
+            if (showMouseCircle && mouseX > 0 && mouseX < width && mouseY > 0 && mouseY < height) {
+                noFill();
+                stroke(255, 255, 255, 50);
+                ellipse(mouseX, mouseY, MOUSE_AVOID_RADIUS_VAL * 2);
+            }
+        }
+
+        function keyPressed() {
+            if (key === 'd' || key === 'D') {
+                showMouseCircle = !showMouseCircle;
+            }
+             if (key === 'r' || key === 'R') { // Reset boids on 'R' key
+                flock = [];
+                for (let i = 0; i < numBoids; i++) {
+                    flock.push(new Boid());
+                }
+            }
+        }
+
+        class Boid {
+            constructor() {
+                this.position = createVector(random(width), random(height));
+                this.velocity = p5.Vector.random2D();
+                this.velocity.setMag(random(1, MAX_SPEED_VAL)); // Use global MAX_SPEED_VAL
+                this.acceleration = createVector();
+                this.size = 5;
+                this.color = color(random(150, 255), random(100, 200), random(200, 255), 200);
+            }
+
+            edges() {
+                if (this.position.x > width) this.position.x = 0;
+                else if (this.position.x < 0) this.position.x = width;
+                if (this.position.y > height) this.position.y = 0;
+                else if (this.position.y < 0) this.position.y = height;
+            }
+
+            applyForce(force) {
+                this.acceleration.add(force);
+            }
+
+            flock(boids) {
+                let separation = this.separation(boids);
+                let alignment = this.alignment(boids);
+                let cohesion = this.cohesion(boids);
+                let mouseAvoid = this.avoidMouse();
+
+                separation.mult(SEPARATION_FORCE_MULT);
+                alignment.mult(ALIGN_FORCE_MULT);
+                cohesion.mult(COHESION_FORCE_MULT);
+                mouseAvoid.mult(MOUSE_AVOID_FORCE_MULT);
+
+                this.applyForce(separation);
+                this.applyForce(alignment);
+                this.applyForce(cohesion);
+                this.applyForce(mouseAvoid);
+            }
+
+            avoidMouse() {
+                let mousePos = createVector(mouseX, mouseY);
+                let steering = createVector();
+                // Only apply if mouse is within canvas bounds
+                if (mouseX > 0 && mouseX < width && mouseY > 0 && mouseY < height) {
+                    let d = dist(this.position.x, this.position.y, mousePos.x, mousePos.y);
+                    if (d < MOUSE_AVOID_RADIUS_VAL) {
+                        let diff = p5.Vector.sub(this.position, mousePos);
+                        diff.div(d * d); // Stronger repulsion when very close
+                        steering.add(diff);
+                        steering.setMag(MAX_SPEED_VAL * 1.5);
+                        steering.sub(this.velocity);
+                        steering.limit(MAX_FORCE_VAL * 1.5);
+                    }
+                }
+                return steering;
+            }
+
+            separation(boids) {
+                let steering = createVector();
+                let total = 0;
+                for (let other of boids) {
+                    let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
+                    if (other !== this && d < SEPARATION_RADIUS_VAL) {
+                        let diff = p5.Vector.sub(this.position, other.position);
+                        diff.normalize();
+                        diff.div(d);
+                        steering.add(diff);
+                        total++;
+                    }
+                }
+                if (total > 0) {
+                    steering.div(total);
+                    steering.setMag(MAX_SPEED_VAL);
+                    steering.sub(this.velocity);
+                    steering.limit(MAX_FORCE_VAL);
+                }
+                return steering;
+            }
+
+            alignment(boids) {
+                let steering = createVector();
+                let total = 0;
+                for (let other of boids) {
+                    let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
+                    if (other !== this && d < PERCEPTION_RADIUS_VAL) {
+                        steering.add(other.velocity);
+                        total++;
+                    }
+                }
+                if (total > 0) {
+                    steering.div(total);
+                    steering.setMag(MAX_SPEED_VAL);
+                    steering.sub(this.velocity);
+                    steering.limit(MAX_FORCE_VAL);
+                }
+                return steering;
+            }
+
+            cohesion(boids) {
+                let steering = createVector();
+                let total = 0;
+                for (let other of boids) {
+                    let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
+                    if (other !== this && d < PERCEPTION_RADIUS_VAL) {
+                        steering.add(other.position);
+                        total++;
+                    }
+                }
+                if (total > 0) {
+                    steering.div(total);
+                    steering.sub(this.position);
+                    steering.setMag(MAX_SPEED_VAL);
+                    steering.sub(this.velocity);
+                    steering.limit(MAX_FORCE_VAL);
+                }
+                return steering;
+            }
+
+            update() {
+                this.velocity.add(this.acceleration);
+                this.velocity.limit(MAX_SPEED_VAL);
+                this.position.add(this.velocity);
+                this.acceleration.mult(0);
+            }
+
+            display() {
+                let theta = this.velocity.heading() + PI / 2;
+                fill(this.color);
+                noStroke();
+                push();
+                translate(this.position.x, this.position.y);
+                rotate(theta);
+                beginShape();
+                vertex(0, -this.size * 2);
+                vertex(-this.size, this.size * 2);
+                vertex(this.size, this.size * 2);
+                endShape(CLOSE);
+                pop();
+            }
+        }
+
+        // Adjust canvas on window resize, though sliders won't auto-reposition without more complex DOM manipulation
+        function windowResized() {
+            let canvasHeight = windowHeight * 0.7;
+            let canvasWidth = windowWidth * 0.8;
+            resizeCanvas(canvasWidth, canvasHeight);
+        }
+    </script>
+</body>
+</html>
